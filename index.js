@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 function Canvas(w, h) {
   this.h = h;
   this.w = w;
@@ -29,16 +30,44 @@ function Canvas(w, h) {
   }
 }
 
+function rand_velocity(v_min, v_max) {
+  return (Math.random()<0.5?-1:1)
+         * (Math.random()*(v_max-v_min)+v_min)
+}
+
 function Boid(w, h) {
   this.w = w;
   this.h = h;
   this.x = Math.floor(Math.random()*w);
   this.y = Math.floor(Math.random()*h);
-  this.vx = 10; //(Math.random()*10)-5;
-  this.vy = 10; //(Math.random()*10)-5;
+  const v_min = 1;
+  const v_max = 5;
+  this.vx = rand_velocity(v_min, v_max)
+  this.vy = rand_velocity(v_min, v_max)
+  this.path = new Path2D();
+  this.path.moveTo(-3, -5)
+  this.path.lineTo(3, -5)
+  this.path.lineTo(0, 10)
+  this.path.closePath();
 
   this.draw = function(ctx) {
-    ctx.strokeRect(this.x, this.y, 10, 10);
+    const angle = Math.atan2(this.vy, this.vx)
+    -Math.PI/2;
+    //console.log("BOID: ",
+     //this.x,
+     //this.y,
+     //this.vx,
+     //this.vy,
+     //angle*180/Math.PI,
+     //direction*180/Math.PI
+     //);
+    ctx.save()
+    ctx.translate(this.x, this.y)
+    ctx.rotate(angle);
+    //ctx.translate(this.x, this.y)
+    ctx.stroke(this.path);
+    //ctx.strokeRect(this.x, this.y, 10, 10);
+    ctx.restore();
   }
 
   this.update = function() {
