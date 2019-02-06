@@ -1,23 +1,20 @@
 /* eslint-disable camelcase */
-function Canvas() {
-  this.h = 640;
-  this.w = 480;
-  this.flock_size = 52;
-  this.min_velocity = 1;
-  this.max_velocity = 2;
-
+function Canvas(w, h) {
+  this.h = h;
+  this.w = w;
   this.c = document.getElementById('canvas');
-  this.c.style.width =  this.c.width = this.w;
-  this.c.style.height = this.c.height = this.h;
+  this.c.style.width =  this.c.width = w;
+  this.c.style.height = this.c.height = h;
   this.ctx = this.c.getContext('2d');
   this.run = false;
+  this.flockSize = 31;
 
   document.getElementById('runButton').innerText = 'Start';
   //this.ctx.globalCompositeOperation = 'destination-over';
 
   this.boids = [];
-  for(let i = 0; i < this.flock_size; i++) {
-    this.boids.push(new Boid(this.w, this.h, this.boids, this.min_velocity, this.max_velocity))
+  for(let i = 0; i < this.flockSize; i++) {
+    this.boids.push(new Boid(this.w, this.h, this.boids))
   }
 
   this.start = function() {
@@ -44,18 +41,21 @@ function normalize_vector(x, y) {
   return [x/m, y/m];
 }
 
-function Boid(w, h, flock, min_v, max_v) {
+const v_min = 5; //.1;
+const v_max = 10; // 1.1;
+const a_angular_max = .1 * (Math.PI/180.0); // radians / frame
+const a_velocity_max = .1; // pixel / frame
+
+function Boid(w, h, flock) {
   this.w = w;
   this.h = h;
   this.flock = flock; // ref to array
-  this.min_velocity = min_v;
-  this.max_velocity = min_v;
 
   this.x = Math.floor(Math.random()*w);
   this.y = Math.floor(Math.random()*h);
 
   this.heading = Math.random()*Math.PI*2
-  this.velocity = Math.random()*(this.max_velocity-this.min_velocity)+this.min_velocity;
+  this.velocity = Math.random()*(v_max-v_min)+v_min;
 
   this.path = new Path2D();
   this.path.moveTo(-3, -5);
@@ -134,7 +134,7 @@ function Boid(w, h, flock, min_v, max_v) {
   }
 }
 
-const c = new Canvas();
+const c = new Canvas(320, 240);
 
 document.getElementById('runButton').addEventListener('click', e => {
   c.run = !c.run;
