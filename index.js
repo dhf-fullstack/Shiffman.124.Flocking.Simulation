@@ -39,20 +39,24 @@ function Canvas() {
   }
 }
 
-function normalize_vector(x, y) {
-  let m = Math.sqrt(x*x + y*y);
-  return [x/m, y/m];
+function magnitude(v) {
+  return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
 }
 
-function Boid(w, h, flock, min_v, max_v) {
-  this.w = w;
-  this.h = h;
+function normalize(v) {
+  let m = magnitude(v);
+  return [v[0]/m, v[1]/m];
+}
+
+function Boid(width, height, flock, min_v, max_v) {
+  this.w = width;
+  this.h = height;
   this.flock = flock; // ref to array
   this.min_velocity = min_v;
-  this.max_velocity = min_v;
+  this.max_velocity = max_v;
 
-  this.x = Math.floor(Math.random()*w);
-  this.y = Math.floor(Math.random()*h);
+  this.x = Math.floor(Math.random()*this.w);
+  this.y = Math.floor(Math.random()*this.h);
 
   this.heading = Math.random()*Math.PI*2
   this.velocity = Math.random()*(this.max_velocity-this.min_velocity)+this.min_velocity;
@@ -103,20 +107,21 @@ function Boid(w, h, flock, min_v, max_v) {
       let avg_velocity = local.reduce((v, b) => v + b.velocity, 0.0) / local.length;
       console.log(`Average heading: ${[avg_heading.toFixed(2), avg_velocity.toFixed(2)]}`);
 
-      // calculate the vector difference between h, v and average h, v
+      // steering velocity is the difference between the current & desired velocities
 
-      local.forEach((b,i) => {
-        b.heading = avg_heading
-        b.velocity = avg_velocity
-        /*
-        let dh = avg_heading - b.heading;
-        let dhd = Math.sign(dh) * Math.min(dh, a_angular_max);
-        b.heading += dhd;
-        let dv = avg_velocity - b.velocity;
-        let dvd = Math.sign(dv) * Math.min(dv, a_velocity_max);
-        b.velocity += dvd;
-        */
-      })
+        // current Velocity
+        const [vx, vy] = [this.velocity*Math.cos(this.heading), this.velocity*Math.sin(this.heading)];
+        // averaGe velocity
+        const [gx, gy] = [avg_velocity*Math.cos(avg_heading), avg_velocity*Math.sin(avg_heading)];
+        // resultant Steering velocity = desired - current
+        let [sx, sy] = normalize([gx-vx, gy-vy]);
+        sx *= this.max_velocity;
+        sy *= this.max_velocity;
+
+        let dh = Math.atan2(sy, sx)   //Math.sign(dh) * Math.min(dh, a_angular_max);
+        this.heading += dh;
+        let dv = magnitude([sx, sy]);
+        this.velocity += dv;
 
     // steer toward the average position of local flockmates
 
@@ -142,7 +147,7 @@ document.getElementById('runButton').addEventListener('click', e => {
   if (c.run) { c.start() }
 })
 
-document.getElementById('stepButton').addEventListener('click', e => {
+document.getElementById('stepButton').addEventListener('click', () => {
   c.run = false;
   c.start();
 })
