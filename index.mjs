@@ -1,15 +1,19 @@
-import { Boid } from './boid.mjs'
-import { log, LOGLEVEL } from './log.mjs'
-import { Vector } from './vector.mjs';
+'use strict'
 
 /* eslint-disable camelcase */
+
+import { Boid } from './boid.mjs'
+import { log, loglevel, LOGLEVEL } from './log.mjs'
+import { Vector } from './vector.mjs';
+
 function Application() {
   this.h = 640;
   this.w = 480;
-  this.flock_size = 1;
+  this.flock_size = 53;
   this.min_speed = 5;
   this.max_speed = 8;
   this.max_force = 0.1;
+  this.mass = 50;
 
   this.c = document.getElementById('canvas');
   this.c.style.width =  this.c.width = this.w;
@@ -22,12 +26,19 @@ function Application() {
 
   this.boids = [];
   for(let i = 0; i < this.flock_size; i++) {
+    const position = new Vector(Math.floor(Math.random()*this.w),                                  Math.floor(Math.random()*this.h));
+    const heading = Math.random()*Math.PI*2
+    const speed = Math.random()*(this.max_speed-this.min_speed)+this.min_speed
+    const velocity = new Vector(Math.cos(heading),
+                                Math.sin(heading)).scale(speed);
+    log(LOGLEVEL.HI, `heading ${heading.toFixed(2)} speed ${speed.toFixed(2)} velocity ${velocity}`)
     this.boids.push(new Boid(this.boids,
-                             new Vector(this.h/2, this.w/2),
-                             new Vector(1, 0),
-                             this.min_speed,
+                             0, 0, this.h, this.w,
+                             position,
+                             velocity,
                              this.max_speed,
-                             this.max_force))
+                             this.max_force,
+                             this.mass))
   }
 
   this.start = function() {
@@ -35,7 +46,7 @@ function Application() {
   }
 
   this.draw = function (ts) {
-    log(LOGLEVEL.LOW, 'drawing', ts, 'fps', 1000/(ts-this.prev_ts));
+    log(LOGLEVEL.HI, 'drawing', ts, 'fps', 1000/(ts-this.prev_ts));
 
     this.prev_ts = ts;
 
@@ -50,6 +61,7 @@ function Application() {
   }
 }
 
+loglevel(LOGLEVEL.LO);
 
 const app = new Application();
 

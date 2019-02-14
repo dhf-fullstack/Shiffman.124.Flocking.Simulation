@@ -1,16 +1,26 @@
+'use strict'
+
 import { Vector } from './vector.mjs'
 import { log, LOGLEVEL } from './log.mjs'
 
 /* eslint-disable camelcase */
-export function Boid (flock, position, velocity, min_speed, max_speed, max_force) {
+// eslint-disable-next-line max-params
+export function Boid (flock, left, top, bottom, right,
+                      position, velocity,
+                      max_speed, max_force, mass) {
 
   this.flock = flock; // ref to array
-  this.min_speed = min_speed;
+  this.left = left;
+  this.top = top;
+  this.bottom = bottom;
+  this.right = right;
+
   this.max_speed = max_speed;
   this.max_force = max_force;
+  this.mass = mass;
 
-  this.position = position; // TODO new Vector(0,0); //Math.floor(Math.random()*this.w), Math.floor(Math.random()*this.h));
-  this.velocity = velocity; // TODO new Vector(0,0); //Math.cos(heading), Math.sin(heading)).scale(speed);
+  this.position = position;
+  this.velocity = velocity;
   this.acceleration = new Vector(0,0)
 
   this.path = new Path2D();
@@ -41,67 +51,82 @@ export function Boid (flock, position, velocity, min_speed, max_speed, max_force
     // local flockmates are within a certain distance of boid center and within an angle of boid direction.
     // start with a naive O(n^2) approach comparing every pair of boids
     const local = this.flock.filter(b => this.distance_from(b.position) < 30)
-    log(LOGLEVEL.HI, 'flock: ', local.length);
+    log(LOGLEVEL.LO, 'flock: ', local.length);
+
+    let steering_force = new Vector(0, 0);
 
     // avoid crowding local flockmates
+    steering_force.add(this.avoid_crowding(local));
 
     // steer toward the average heading of local flockmates
-
-      // find the average heading & velocity
-/*
-      if (loglevel() === LOGLEVEL.HI) {
-        local.forEach((b,i) => {
-          let [h, v] = b.velocity.polar();
-          log(LOGLEVEL.HI, `${i}: ${[h.toFixed(2), v.toFixed(2)]}`);
-        })
-      }
-
-      let avg_heading = local.reduce((h, b) => h + b.heading, 0.0) / local.length;
-      let avg_velocity = local.reduce((v, b) => v + b.velocity, 0.0) / local.length;
-      log(LOGLEVEL.LOW, `Average heading: ${[avg_heading.toFixed(2), avg_velocity.toFixed(2)]}`);
-*/
-/*
-      // steering velocity is the difference between the current & desired velocities
-
-        // current Velocity
-        const [vx, vy] = [this.velocity*Math.cos(this.heading), this.velocity*Math.sin(this.heading)];
-        // averaGe velocity
-        const [gx, gy] = [avg_velocity*Math.cos(avg_heading), avg_velocity*Math.sin(avg_heading)];
-        // resultant Steering velocity = desired - current
-        let [sx, sy] = normalize([gx-vx, gy-vy]);
-        sx *= this.max_velocity;
-        sy *= this.max_velocity;
-
-        let dh = Math.atan2(sy, sx)   //Math.sign(dh) * Math.min(dh, a_angular_max);
-        this.heading += dh;
-        let dv = magnitude([sx, sy]);
-        this.velocity += dv;
+    steering_force.add(this.average_heading(local));
 
     // steer toward the average position of local flockmates
-*/
+    steering_force.add(this.average_position(local));
 
-    // steer away from the walls
-    const margin = 25;
-    if (this.x < margin) {
-      const desired = new Vector(this.max_velocity, this.velocity.y);
-      let steering_force = Vector.sub(desired, this.velocity).limit(this.max_force);
-      this.acceleration = steering_force;
+    // steer away from the walls at left, top, right, bottom
+    let s = this.avoid_obstacles();
+    if (s.x !== 0.0 || s.y !== 0.0) {
+      steering_force = s;
     }
 
+    this.acceleration.add(steering_force.scale(1.0/this.mass));
     this.velocity.add(this.acceleration);
     this.acceleration.set(0, 0)
-
     this.position.add(this.velocity)
-    /*
-    if (this.x > this.w || this.x < 0) {
-      this.heading = this.heading + Math.PI;
+
+    log(LOGLEVEL.HI, "new vel ", this.velocity, " new pos ", this.position);
+  }
+
+  // return steering force (vector) to avoid crowding local flockmates
+  this.avoid_crowding = function(_local) {
+    return new Vector(0, 0);
+  }
+
+  // return steering force (vector) toward the average heading of local flockmates
+  this.average_heading = function(local) {
+
+    let avg_heading = local.reduce((sum, b) => {
+      let [heading, _speed] = b.velocity.polar();
+      return sum + heading;
+    }, 0.0) / local.length;
+
+    let avg_speed = local.reduce((sum, b) => {
+      let [_heading, speed] = b.velocity.polar();
+      return sum + speed;
+    }, 0.0) / local.length;
+
+    let desired = new Vector(Math.cos(avg_heading),
+                             Math.sin(avg_heading)).scale(avg_speed);
+    let steering_force = new Vector(desired).sub(this.velocity);
+    return steering_force.limit(this.max_force)
+  }
+
+  this.average_position = function(_local) {
+    return new Vector(0, 0);
+  }
+
+  this.avoid_obstacles = function() {
+    const margin = 25;
+    let desired;
+    if (this.position.x < this.left+margin) {
+      // left wall, go right
+      desired = new Vector(this.max_speed, this.velocity.y);
+    } else if (this.position.x > this.right-margin) {
+      // right wall, go left}
+      desired = new Vector(-this.max_speed, this.velocity.y);
+    } else if (this.position.y < this.top+margin) {
+      // top wall, go down
+      desired = new Vector(this.velocity.x, this.max_speed);
+    } else if (this.position.y > this.bottom-margin) {
+      // bottom wall, go up
+      desired = new Vector(this.velocity.x, -this.max_speed);
     }
-    if (this.y > this.h || this.y < 0) {
-      this.heading = this.heading + Math.PI;
+    if (desired) {
+      let steering_force = new Vector(desired).sub(this.velocity)
+      return steering_force.limit(this.max_force);
+    } else {
+      return new Vector(0, 0);
     }
-    if (this.heading > Math.PI*2) {
-      this.heading -= Math.PI*2;
-    }
-    */
   }
 }
