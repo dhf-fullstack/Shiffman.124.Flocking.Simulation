@@ -3,9 +3,8 @@
 /* eslint-disable camelcase */
 
 import { Boid } from './boid.mjs'
-import { log, LOGLEVEL } from './log.mjs'
+import { log, loglevel, LOGLEVEL } from './log.mjs'
 import { Vector } from './vector.mjs';
-import { loglevel } from './log.mjs';
 
 function Application() {
   this.h = 640;
