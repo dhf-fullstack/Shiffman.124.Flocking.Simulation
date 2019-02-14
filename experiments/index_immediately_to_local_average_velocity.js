@@ -7,11 +7,13 @@ function Canvas(w, h) {
   this.c.style.height = this.c.height = h;
   this.ctx = this.c.getContext('2d');
   this.run = false;
+  this.flockSize = 31;
+
   document.getElementById('runButton').innerText = 'Start';
   //this.ctx.globalCompositeOperation = 'destination-over';
 
   this.boids = [];
-  for(let i = 0; i < 30; i++) {
+  for(let i = 0; i < this.flockSize; i++) {
     this.boids.push(new Boid(this.w, this.h, this.boids))
   }
 
@@ -34,26 +36,27 @@ function Canvas(w, h) {
   }
 }
 
-function rand_velocity(v_min, v_max) {
-  return (Math.random()<0.5?-1:1)
-         * (Math.random()*(v_max-v_min)+v_min)
-}
-
 function normalize_vector(x, y) {
   let m = Math.sqrt(x*x + y*y);
   return [x/m, y/m];
 }
 
+const v_min = 5; //.1;
+const v_max = 10; // 1.1;
+const a_angular_max = .1 * (Math.PI/180.0); // radians / frame
+const a_velocity_max = .1; // pixel / frame
+
 function Boid(w, h, flock) {
   this.w = w;
   this.h = h;
   this.flock = flock; // ref to array
+
   this.x = Math.floor(Math.random()*w);
   this.y = Math.floor(Math.random()*h);
-  const v_min = 4;
-  const v_max = 7;
-  this.vx = rand_velocity(v_min, v_max);
-  this.vy = rand_velocity(v_min, v_max);
+
+  this.heading = Math.random()*Math.PI*2
+  this.velocity = Math.random()*(v_max-v_min)+v_min;
+
   this.path = new Path2D();
   this.path.moveTo(-3, -5);
   this.path.lineTo(3, -5);
@@ -61,19 +64,15 @@ function Boid(w, h, flock) {
   this.path.closePath();
 
   this.draw = function(ctx) {
-    const angle = Math.atan2(this.vy, this.vx)
-    -Math.PI/2;
-    //console.log("BOID: ",
-     //this.x,
-     //this.y,
-     //this.vx,
-     //this.vy,
-     //angle*180/Math.PI,
-     //direction*180/Math.PI
-     //);
+    console.log("BOID: ",
+      this.x,
+      this.y,
+      this.heading*180/Math.PI,
+      this.velocity
+    );
     ctx.save()
     ctx.translate(this.x, this.y)
-    ctx.rotate(angle);
+    ctx.rotate(this.heading-Math.PI/2);
     ctx.stroke(this.path);
     ctx.restore();
   }
@@ -87,29 +86,50 @@ function Boid(w, h, flock) {
 
     // local flockmates are within a certain distance of boid center and within an angle of boid direction.
     // start with a naive O(n^2) approach comparing every pair of boids
-    const local = this.flock.filter(b => this.distance_from(b.x, b.y) < 50)
+    const local = this.flock.filter(b => this.distance_from(b.x, b.y) < 30)
     console.log('flock: ', local.length)
 
     // avoid crowding local flockmates
 
     // steer toward the average heading of local flockmates
-    local.forEach((b,i) => {
-      console.log(`${i}: ${[b.vx.toFixed(2), b.vy.toFixed(2)]}`);
-    })
 
-    let avg_x = local.reduce((x, b) => x + b.x, 0.0);
-    let avg_y = local.reduce((y, b) => y + b.y, 0.0);
-    [avg_x, avg_y] = normalize_vector(avg_x, avg_y);
-    console.log(`Average heading: ${[avg_x.toFixed(2), avg_y.toFixed(2)]}`);
+      // find the average heading & velocity
+
+      local.forEach((b,i) => {
+        console.log(`${i}: ${[b.heading.toFixed(2), b.velocity.toFixed(2)]}`);
+      })
+
+      let avg_heading = local.reduce((h, b) => h + b.heading, 0.0) / local.length;
+      let avg_velocity = local.reduce((v, b) => v + b.velocity, 0.0) / local.length;
+      console.log(`Average heading: ${[avg_heading.toFixed(2), avg_velocity.toFixed(2)]}`);
+
+      // calculate the vector difference between h, v and average h, v
+
+      local.forEach((b,i) => {
+        b.heading = avg_heading
+        b.velocity = avg_velocity
+        /*
+        let dh = avg_heading - b.heading;
+        let dhd = Math.sign(dh) * Math.min(dh, a_angular_max);
+        b.heading += dhd;
+        let dv = avg_velocity - b.velocity;
+        let dvd = Math.sign(dv) * Math.min(dv, a_velocity_max);
+        b.velocity += dvd;
+        */
+      })
+
     // steer toward the average position of local flockmates
 
-    this.x += this.vx;
-    this.y += this.vy;
+    this.x += this.velocity * Math.cos(this.heading);
+    this.y += this.velocity * Math.sin(this.heading);
     if (this.x > this.w || this.x < 0) {
-      this.vx = -this.vx;
+      this.heading = this.heading + Math.PI;
     }
     if (this.y > this.h || this.y < 0) {
-      this.vy = -this.vy;
+      this.heading = this.heading + Math.PI;
+    }
+    if (this.heading > Math.PI*2) {
+      this.heading -= Math.PI*2;
     }
   }
 }
