@@ -1,16 +1,26 @@
+'use strict'
+
 import { Vector } from './vector.mjs'
 import { log, LOGLEVEL } from './log.mjs'
 
 /* eslint-disable camelcase */
-export function Boid (flock, position, velocity, min_speed, max_speed, max_force) {
+// eslint-disable-next-line max-params
+export function Boid (flock, left, top, bottom, right,
+                      position, velocity,
+                      max_speed, max_force, mass) {
 
   this.flock = flock; // ref to array
-  this.min_speed = min_speed;
+  this.left = left;
+  this.top = top;
+  this.bottom = bottom;
+  this.right = right;
+
   this.max_speed = max_speed;
   this.max_force = max_force;
+  this.mass = mass;
 
-  this.position = position; // TODO new Vector(0,0); //Math.floor(Math.random()*this.w), Math.floor(Math.random()*this.h));
-  this.velocity = velocity; // TODO new Vector(0,0); //Math.cos(heading), Math.sin(heading)).scale(speed);
+  this.position = position;
+  this.velocity = velocity;
   this.acceleration = new Vector(0,0)
 
   this.path = new Path2D();
@@ -41,7 +51,7 @@ export function Boid (flock, position, velocity, min_speed, max_speed, max_force
     // local flockmates are within a certain distance of boid center and within an angle of boid direction.
     // start with a naive O(n^2) approach comparing every pair of boids
     const local = this.flock.filter(b => this.distance_from(b.position) < 30)
-    log(LOGLEVEL.HI, 'flock: ', local.length);
+    log(LOGLEVEL.LO, 'flock: ', local.length);
 
     // avoid crowding local flockmates
 
@@ -69,8 +79,8 @@ export function Boid (flock, position, velocity, min_speed, max_speed, max_force
         const [gx, gy] = [avg_velocity*Math.cos(avg_heading), avg_velocity*Math.sin(avg_heading)];
         // resultant Steering velocity = desired - current
         let [sx, sy] = normalize([gx-vx, gy-vy]);
-        sx *= this.max_velocity;
-        sy *= this.max_velocity;
+        sx *= this.max_speed;
+        sy *= this.max_speed;
 
         let dh = Math.atan2(sy, sx)   //Math.sign(dh) * Math.min(dh, a_angular_max);
         this.heading += dh;
@@ -80,28 +90,35 @@ export function Boid (flock, position, velocity, min_speed, max_speed, max_force
     // steer toward the average position of local flockmates
 */
 
-    // steer away from the walls
+    // steer away from the walls at left, top, right, bottom
     const margin = 25;
-    if (this.x < margin) {
-      const desired = new Vector(this.max_velocity, this.velocity.y);
-      let steering_force = Vector.sub(desired, this.velocity).limit(this.max_force);
-      this.acceleration = steering_force;
+    let desired;
+    if (this.position.x < this.left+margin) { // left wall, go right
+      desired = new Vector(this.max_speed, this.velocity.y);
+      log(LOGLEVEL.HI, "Approaching left ", desired)
+    } else if (this.position.x > this.right-margin) { // right wall, go left}
+      desired = new Vector(-this.max_speed, this.velocity.y);
+      log(LOGLEVEL.HI, "Approaching right ", this.position.x, this.right-margin, desired)
+    } else if (this.position.y < this.top+margin) { // top wall, go down
+      desired = new Vector(this.velocity.x, this.max_speed);
+      log(LOGLEVEL.HI, "Approaching top ", desired)
+    } else if (this.position.y > this.bottom-margin) { // bottom wall, go up}
+      desired = new Vector(this.velocity.x, -this.max_speed);
+      log(LOGLEVEL.HI, "Approaching bottom ", desired)
+    }
+    if (desired) {
+      let steering_force = new Vector(desired).sub(this.velocity)
+      log(LOGLEVEL.HI, "steering_force ", steering_force)
+      steering_force.limit(this.max_force);
+      log(LOGLEVEL.HI, "steering_force LIMITED", steering_force, " scale ", 1.0/this.mass)
+      this.acceleration = steering_force.scale(1.0/this.mass);
+      log(LOGLEVEL.HI, "accel ", this.acceleration)
     }
 
     this.velocity.add(this.acceleration);
     this.acceleration.set(0, 0)
-
     this.position.add(this.velocity)
-    /*
-    if (this.x > this.w || this.x < 0) {
-      this.heading = this.heading + Math.PI;
-    }
-    if (this.y > this.h || this.y < 0) {
-      this.heading = this.heading + Math.PI;
-    }
-    if (this.heading > Math.PI*2) {
-      this.heading -= Math.PI*2;
-    }
-    */
+
+    log(LOGLEVEL.HI, "new vel ", this.velocity, " new pos ", this.position);
   }
 }

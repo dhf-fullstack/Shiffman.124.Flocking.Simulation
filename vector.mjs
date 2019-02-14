@@ -1,6 +1,16 @@
-export function Vector(x, y) {
-  this.x = x;
-  this.y = y;
+/* eslint-disable camelcase */
+
+export function Vector() {
+
+  if (arguments.length === 2) {
+    this.x = arguments[0];
+    this.y = arguments[1];
+  } else if (arguments.length === 1) {
+    this.x = arguments[0].x
+    this.y = arguments[0].y
+  } else {
+    throw new Error(`Vector() expected a vector or two numbers. Got ${arguments}`)
+  }
 
   this.magnitude = function () {
     return Math.sqrt(this.x*this.x + this.y*this.y);
@@ -34,8 +44,10 @@ export function Vector(x, y) {
   this.limit = function (max) {
     // (10, 20, 2).limit(5) = [ 2.2271771, 4.4543543, 0.4454354 ]
     const mag = this.magnitude();
-    this.normalize();
-    this.scale(mag/max);
+    if (max > mag) {
+      this.normalize();
+      this.scale(mag/max);
+    }
     return this;
   }
 
@@ -45,9 +57,9 @@ export function Vector(x, y) {
     return [heading, speed];
   }
 
-  this.set = function (x, y) {
-    this.x = x;
-    this.y = y;
+  this.set = function (new_x, new_y) {
+    this.x = new_x;
+    this.y = new_y;
     return this;
   }
 
